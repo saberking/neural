@@ -168,10 +168,6 @@ protected:
                 needsNormalise=getPluginDPSPointer()->normalise();
             }
 
-            if (ImGui::IsItemDeactivated())
-            {
-                editParameter(kParamDelay, false);
-            }
             if(needsNormalise) needsNormalise=getPluginDPSPointer()->normalise();
 
 
