@@ -11,6 +11,7 @@
 #include <ctime>
 #include "external/Eigen/SVD" // Make sure to include the SVD header at the top of your file
 #include <random> // <-- ADD THIS LINE HERE
+#include <chrono>
 
 START_NAMESPACE_DISTRHO
     enum ActivationFunctionType{
@@ -326,13 +327,34 @@ protected:
             break;
         }
     }
+    std::chrono::steady_clock::time_point start=std::chrono::steady_clock::now();
+    float time1=0, time2=0, time3=0, time4=0, time5=0, time6=0, time7=0, time8=0;
+    int framecounter=0;
+    void printTime()
+    {
+        std::cout<<"Time"<<std::endl;
+        std::cout<<time1<<"    "<<time2<<"   "<<time3<<"    "<<time4<<"   "<<time5<<"    "<<time6<<"   "<<time7<<"    "<<time8<<std::endl;
+    }
+    void startTimer(){
+        start= std::chrono::steady_clock::now();
+    }
+    float getTimeInterval(){
+        std::chrono::steady_clock::time_point end;
 
+        end= std::chrono::steady_clock::now();
+        // 1. Get seconds as a float (e.g., 0.01234 seconds)
+        float seconds = std::chrono::duration<float>(end - start).count();
+        float milliseconds = std::chrono::duration<float, std::milli>(end - start).count();
+        startTimer();
+        return milliseconds;
+    }
 
     void run ( const float **inputs, float **outputs, uint32_t frames,
              const MidiEvent *midiEvents, // MIDI pointer
              uint32_t midiEventCount      // Number of MIDI events in block
              ) override
     {
+        startTimer();
         int curEventIndex =0;
 
         ActivationFunctionType activationFunction=activation.load(std::memory_order_release);
@@ -347,6 +369,9 @@ protected:
         int delay=(int)std::max(0.f,std::min(fDelay*note,(float)MAX_DELAY));
         int currentLoopDelay=lastDelay;
         int lastLoopDelay=currentLoopDelay;
+
+        time1+=getTimeInterval();
+
         Eigen::Map<Eigen::Matrix<float, OUT_SIZE, OUT_SIZE+CONSTANT_KNOB_COUNT, Eigen::RowMajor>, Eigen::Aligned64>
             W(weightBufferPointer.load(std::memory_order_acquire));
 
@@ -354,7 +379,7 @@ protected:
         //                          Eigen::RowMajor>> W(weightBufferPointer.load(std::memory_order_relaxed));
 
         Eigen::Map<Eigen::Vector<float, OUT_SIZE>> y(outputBuffer);
-
+        time2+=getTimeInterval();
         for (uint32_t sample = 0; sample < frames; ++sample) {
             while ( curEventIndex < midiEventCount && sample == midiEvents[curEventIndex].frame )
             {
@@ -376,6 +401,8 @@ protected:
                     "    temp"<<temp<<"    temp2 "<<temp2<<  std::endl;
             else inputBufferIndex=newIndex;
             lastLoopDelay=currentLoopDelay;
+
+            time3+=getTimeInterval();
             Eigen::Map<Eigen::Vector<float, OUT_SIZE+CONSTANT_KNOB_COUNT>> x(inputBuffer[inputBufferIndex]);
             // Append your 4 special parameters to the remaining 4 slots of x
             x[OUT_SIZE] = fA;
@@ -385,13 +412,14 @@ protected:
             // 1. Load your sample into your input vector 'x' here...
             x[0]=inputs[0][sample];x[1]=inputs[1][sample];
 
-
+            time4+=getTimeInterval();
             const float* rawW = W.data();
             const float* rawX = x.data();
             float*       rawY = y.data();
 
 
             // 2. Your ultra-fast, thread-safe unrolled loop compiles perfectly now!
+            time5+=getTimeInterval();
             for (int r = 0; r < OUT_SIZE; ++r) {
                 float sum = 0.0f;
 
@@ -410,6 +438,7 @@ protected:
 
                 rawY[r] = sum;
             }
+            time6+=getTimeInterval();
             if(activationFunction==activationFunctionClip)
             {
                 y = y.array().cwiseMax(-1.0f).cwiseMin(1.0f);
@@ -422,7 +451,7 @@ protected:
                     rawY[r] = fastTanh(rawY[r]);
                 }
             }
-
+            time7+=getTimeInterval();
 
 
             outputs[0][sample]=clip(y[0],2);outputs[1][sample]=clip(y[1],2);
@@ -430,11 +459,12 @@ protected:
             inputBufferIndex=(inputBufferIndex+1)%(MAX_DELAY+1);
             Eigen::Map<Eigen::Vector<float, OUT_SIZE+CONSTANT_KNOB_COUNT>> x2(inputBuffer[(inputBufferIndex+currentLoopDelay)%(MAX_DELAY+1)]);
             x2.head<OUT_SIZE>() = y.eval();
-
+            time8+=getTimeInterval();
+            framecounter++;
 
         }
         lastDelay=lastLoopDelay;
-
+        if(!(framecounter%48000)) printTime();
     }
 
     // ----------------------------------------------------------------------------------------------------------------
