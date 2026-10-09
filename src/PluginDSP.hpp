@@ -404,6 +404,8 @@ protected:
 
             time3+=getTimeInterval();
             Eigen::Map<Eigen::Vector<float, OUT_SIZE+CONSTANT_KNOB_COUNT>> x(inputBuffer[inputBufferIndex]);
+            time4+=getTimeInterval();
+
             // Append your 4 special parameters to the remaining 4 slots of x
             x[OUT_SIZE] = fA;
             x[OUT_SIZE+1] = fB;
@@ -412,7 +414,6 @@ protected:
             // 1. Load your sample into your input vector 'x' here...
             x[0]=inputs[0][sample];x[1]=inputs[1][sample];
 
-            time4+=getTimeInterval();
             const float* rawW = W.data();
             const float* rawX = x.data();
             float*       rawY = y.data();
