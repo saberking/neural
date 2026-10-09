@@ -334,6 +334,8 @@ protected:
     {
         std::cout<<"Time"<<std::endl;
         std::cout<<time1<<"    "<<time2<<"   "<<time3<<"    "<<time4<<"   "<<time5<<"    "<<time6<<"   "<<time7<<"    "<<time8<<std::endl;
+        time1=time2=time3=time4=time5=time6=time7=time8=0.f;
+
     }
     void startTimer(){
         start= std::chrono::steady_clock::now();
@@ -461,11 +463,10 @@ protected:
             Eigen::Map<Eigen::Vector<float, OUT_SIZE+CONSTANT_KNOB_COUNT>> x2(inputBuffer[(inputBufferIndex+currentLoopDelay)%(MAX_DELAY+1)]);
             x2.head<OUT_SIZE>() = y.eval();
             time8+=getTimeInterval();
-            framecounter++;
+            if(!(framecounter++%48000)) printTime();
 
         }
         lastDelay=lastLoopDelay;
-        if(!(framecounter%48000)) printTime();
     }
 
     // ----------------------------------------------------------------------------------------------------------------
